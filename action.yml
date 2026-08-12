@@ -1,0 +1,126 @@
+name: 'Claude SAST (OWASP Top 10)'
+description: >-
+  Run an AI-augmented SAST scan focused on OWASP Top 10 using Claude Code
+  skills. Bundles the sast-* skills and orchestration, stages them into the
+  consumer workspace, invokes Claude Code, and optionally posts the final
+  report as a pull-request comment.
+author: 'mesoneer'
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  anthropic-api-key:
+    description: 'Anthropic API key (needs access to the chosen model).'
+    required: true
+  scope:
+    description: >-
+      Scope tokens forwarded to the /scan command. Examples:
+      "owasp-top-10", "A01 A03", "sast-sqli sast-xss", "--fresh".
+    required: false
+    default: 'owasp-top-10'
+  model:
+    description: 'Claude model id.'
+    required: false
+    default: 'claude-opus-4-7'
+  max-turns:
+    description: 'Maximum agent turns for the scan.'
+    required: false
+    default: '40'
+  output-dir:
+    description: 'Directory (relative to workspace) where sast/ output is written.'
+    required: false
+    default: 'sast'
+  post-pr-comment:
+    description: 'When true, post sast/final-report.md as a PR comment (pull_request events only).'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token used to comment on the PR. Defaults to the workflow token.'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  report-path:
+    description: 'Path to the generated final report (relative to the workspace).'
+    value: ${{ steps.locate.outputs.report-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Stage SAST skills into workspace
+      shell: bash
+      run: |
+        set -euo pipefail
+        SRC="${{ github.action_path }}/sast-files"
+        if [[ ! -d "$SRC/.claude/skills" ]]; then
+          echo "::error::Expected skills at $SRC/.claude/skills — action bundle looks incomplete."
+          exit 1
+        fi
+        mkdir -p .claude/skills "${{ inputs.output-dir }}"
+        cp -r "$SRC"/.claude/skills/sast-* .claude/skills/
+        # Orchestration file must live at repo root so Claude Code picks it up.
+        cp "$SRC/CLAUDE.md" CLAUDE.md
+        echo "Staged skills:"
+        ls .claude/skills/
+
+    - name: Run Claude SAST
+      uses: anthropics/claude-code-action@v1
+      with:
+        anthropic_api_key: ${{ inputs.anthropic-api-key }}
+        claude_args: '--model ${{ inputs.model }} --max-turns ${{ inputs.max-turns }}'
+        prompt: |
+          Run the SAST security assessment defined in CLAUDE.md.
+
+          Scope: ${{ inputs.scope }}
+
+          Follow the orchestration exactly:
+            1. sast-analysis  → ${{ inputs.output-dir }}/architecture.md
+            2. sast-index     → ${{ inputs.output-dir }}/sinks-index.md
+            3. run the selected detection skills IN PARALLEL as subagents
+            4. sast-report    → ${{ inputs.output-dir }}/final-report.md
+
+          When finished, print a concise summary of CRITICAL and HIGH findings
+          (file:line, category, one-line description).
+
+    - name: Locate final report
+      id: locate
+      if: always()
+      shell: bash
+      run: |
+        REPORT="${{ inputs.output-dir }}/final-report.md"
+        if [[ -f "$REPORT" ]]; then
+          echo "report-path=$REPORT" >> "$GITHUB_OUTPUT"
+        else
+          echo "report-path=" >> "$GITHUB_OUTPUT"
+          echo "::warning::No final-report.md produced."
+        fi
+
+    - name: Post final report as PR comment
+      if: >-
+        always()
+        && inputs.post-pr-comment == 'true'
+        && github.event_name == 'pull_request'
+        && steps.locate.outputs.report-path != ''
+      uses: actions/github-script@v7
+      env:
+        REPORT_PATH: ${{ steps.locate.outputs.report-path }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          let body = fs.readFileSync(process.env.REPORT_PATH, 'utf8');
+          const LIMIT = 60000;
+          if (body.length > LIMIT) {
+            body = body.slice(0, LIMIT) +
+              '\n\n_…report truncated. See workflow artifacts for full report._';
+          }
+          const header =
+            '## 🤖 Claude SAST — OWASP Top 10 (advisory)\n\n' +
+            '_Advisory scan — does not block the merge._\n\n';
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: header + body,
+          });

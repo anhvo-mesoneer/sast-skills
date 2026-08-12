@@ -1,6 +1,6 @@
 # LLM SAST Skills
 
-A collection of agent skills that turn your LLM coding assistant into a fully functional SAST scanner to find vulnerabilities in your codebase. Works natively with Claude Code, Codex, Opencode, Cursor and any other assistant that supports agent skills. No third-party tools required.
+A collection of agent skills that turn your LLM coding assistant into a fully functional SAST scanner focused on the **OWASP Top 10 (2021)**. Works natively with Claude Code, Codex, Opencode, Cursor and any other assistant that supports agent skills. No third-party tools required.
 
 Claude Code with Opus model is recommended. But if the cost is a concern, use any IDE and model you trust.
 
@@ -8,34 +8,30 @@ Claude Code with Opus model is recommended. But if the cost is a concern, use an
 
 ## How It Works
 
-`CLAUDE.md` (for Claude Code) or `AGENTS.md` (for Opencode and other IDEs) orchestrates the entire assessment workflow automatically. The assessment runs in three steps:
+`CLAUDE.md` (for Claude Code) or `AGENTS.md` (for Opencode and other IDEs) orchestrates the entire assessment workflow automatically:
 
-1. **Codebase Analysis** -- The `sast-analysis` skill maps the technology stack, architecture, entry points, data flows, and trust boundaries. It writes its findings to `sast/architecture.md`.
+1. **Scope selection** — the orchestrator picks which skills to run based on the OWASP categories you ask for (or runs everything by default).
+2. **Codebase Analysis** — the `sast-analysis` skill maps the technology stack, architecture, entry points, data flows, and trust boundaries. Output: `sast/architecture.md`.
+3. **Sinks Index (shared cache)** — the `sast-index` skill runs `rg` once across the tree to enumerate security-relevant sinks (SQL calls, exec/eval, template renders, XML parsers, HTTP clients, upload handlers, JWT usage, secret markers, …) and writes per-skill sections to `sast/sinks-index.md`. Every detection skill reads only its section instead of re-scanning the codebase.
+4. **Vulnerability Detection (parallel)** — the selected detection skills run in parallel as subagents. Each does a recon phase (reusing `sast/<skill>-recon.md` if present) then verifies exploitability. Results go to `sast/*-results.md`.
+5. **Report Generation** — the `sast-report` skill consolidates all findings into a single `sast/final-report.md`, ranked by severity with full remediation guidance and dynamic test instructions.
 
-2. **Vulnerability Detection (parallel)** -- All 13 vulnerability detection skills run in parallel as subagents. Each skill follows a two-phase approach: first a recon/discovery phase to find candidate sections, then a verification phase to confirm exploitability. Results are written to `sast/*-results.md`.
+### Caching / token efficiency
 
-3. **Report Generation** -- The `sast-report` skill consolidates all findings into a single `sast/final-report.md`, ranked by severity with full remediation guidance and dynamic test instructions.
+`architecture.md`, `sinks-index.md`, and per-skill `*-recon.md` files are **persisted** and reused across runs. A re-scan on an unchanged codebase does almost no reading — it just re-uses caches and jumps to verification. Use `/scan --fresh` (or delete files under `sast/`) to invalidate.
 
-## What It Detects
+## OWASP Top 10 Coverage
 
-| Skill | Vulnerability Class |
-|---|---|
-| sast-analysis | Codebase reconnaissance, architecture mapping, threat modeling |
-| sast-sqli | SQL Injection |
-| sast-graphql | GraphQL injection |
-| sast-xss | Cross-Site Scripting (XSS) |
-| sast-rce | Remote Code Execution (command injection, eval, unsafe deserialization) |
-| sast-ssrf | Server-Side Request Forgery |
-| sast-idor | Insecure Direct Object Reference |
-| sast-xxe | XML External Entity |
-| sast-ssti | Server-Side Template Injection |
-| sast-jwt | Insecure JWT implementations |
-| sast-missingauth | Missing authentication and broken function-level authorization |
-| sast-pathtraversal | Path / directory traversal |
-| sast-fileupload | Insecure file upload |
-| sast-businesslogic | Business logic flaws (price manipulation, workflow bypass, race conditions, etc.) |
-| sast-report | Consolidated final report ranked by severity |
+| Group | Category | Skills |
+|-------|----------|--------|
+| **A01** | Broken Access Control | `sast-idor`, `sast-missingauth`, `sast-pathtraversal` |
+| **A02** | Cryptographic Failures | `sast-hardcodedsecrets` |
+| **A03** | Injection | `sast-sqli`, `sast-xss`, `sast-rce`, `sast-ssti`, `sast-xxe` |
+| **A05** | Security Misconfiguration | `sast-fileupload` |
+| **A07** | Identification & Authentication Failures | `sast-jwt` |
+| **A10** | Server-Side Request Forgery | `sast-ssrf` |
 
+Plus `sast-analysis` (recon / threat modeling) and `sast-report` (final consolidated report).
 
 ## Installation
 
@@ -47,18 +43,25 @@ cp -r /path/to/your/project sast-files/
 
 > **Note:** If your project already contains a `CLAUDE.md` or `AGENTS.md` file, remove it before running the assessment — otherwise it will conflict with the orchestration file provided by this toolkit.
 
-
 ## Usage
 
-After copying the files, open your project in your AI coding assistant and ask:
+After copying the files, open your project in your AI coding assistant.
+
+Run a full OWASP Top 10 scan:
 
 > Run vulnerability scan
 
-or
+Scan a specific OWASP category (or several):
 
-> Find vulnerabilities in this codebase
+> Scan for A01 and A03 vulnerabilities
 
-The entry point file (`CLAUDE.md` or `AGENTS.md`) orchestrates the full workflow automatically. It will skip any steps whose output files already exist, so you can safely re-run it after fixing issues.
+> Only check injection issues
+
+Scan specific skills:
+
+> Run sast-sqli and sast-xss
+
+The entry point file (`CLAUDE.md` or `AGENTS.md`) orchestrates the workflow automatically. It skips any steps whose output files already exist, so you can safely re-run it after fixing issues.
 
 ## Output
 
