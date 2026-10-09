@@ -24,22 +24,26 @@ Otherwise, tokenize `$ARGUMENTS` (split on whitespace, commas, and `+`) and for 
 | Token(s) | Skills |
 |----------|--------|
 | `A01`, `access-control`, `broken-access-control` | sast-idor, sast-missingauth, sast-pathtraversal |
-| `A02`, `crypto`, `cryptographic-failures`, `secrets` | sast-hardcodedsecrets |
+| `A02`, `crypto`, `cryptographic-failures` | sast-hardcodedsecrets, sast-weakcrypto |
 | `A03`, `injection` | sast-sqli, sast-xss, sast-rce, sast-ssti, sast-xxe |
-| `A05`, `misconfig`, `security-misconfiguration` | sast-fileupload |
+| `A04`, `insecure-design`, `design` | sast-businesslogic |
+| `A05`, `security-misconfiguration` | sast-fileupload, sast-misconfig |
+| `A06`, `components`, `vulnerable-components`, `dependencies` | sast-sca |
 | `A07`, `auth`, `authentication` | sast-jwt |
-| `A10`, `ssrf` | sast-ssrf |
+| `A08`, `integrity`, `data-integrity` | sast-massassignment, sast-cicd |
+| `A09`, `monitoring`, `security-logging` | sast-logging |
+| `A10` | sast-ssrf |
 
 ### Individual skill tokens
 
 Accept either the short name or the `sast-` prefixed form:
 
-`idor`, `missingauth`, `pathtraversal`, `hardcodedsecrets` (or `secrets`), `sqli`, `xss`, `rce`, `ssti`, `xxe`, `fileupload`, `jwt`, `ssrf`
+`idor`, `missingauth`, `pathtraversal`, `hardcodedsecrets` (or `secrets`), `sqli`, `xss`, `rce`, `ssti`, `xxe`, `fileupload`, `jwt`, `ssrf`, `weakcrypto`, `businesslogic` (or `logic`), `misconfig`, `sca`, `massassignment` (or `prototype-pollution`), `cicd` (or `pipeline`), `logging`
 
 Deduplicate the resulting skill list. If any token cannot be resolved, stop and ask me to clarify — do not silently drop it.
 
 ## Execution
 
 1. Run `sast-analysis` first (skip if `sast/architecture.md` already exists).
-2. Launch one subagent per resolved skill **in parallel**, each following the instruction pattern in `CLAUDE.md` Step 2. Skip any whose `sast/<skill>-results.md` already exists.
+2. Launch one subagent per resolved skill **in parallel**, each following the instruction pattern in `CLAUDE.md` Step 3. Skip any whose `sast/<skill>-results.md` already exists.
 3. When all detection subagents finish, run `sast-report` to produce `sast/final-report.md` (skip if it already exists).

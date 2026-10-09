@@ -12,7 +12,7 @@ Claude Code with Opus model is recommended. But if the cost is a concern, use an
 
 1. **Scope selection** — the orchestrator picks which skills to run based on the OWASP categories you ask for (or runs everything by default).
 2. **Codebase Analysis** — the `sast-analysis` skill maps the technology stack, architecture, entry points, data flows, and trust boundaries. Output: `sast/architecture.md`.
-3. **Sinks Index (shared cache)** — the `sast-index` skill runs `rg` once across the tree to enumerate security-relevant sinks (SQL calls, exec/eval, template renders, XML parsers, HTTP clients, upload handlers, JWT usage, secret markers, …) and writes per-skill sections to `sast/sinks-index.md`. Every detection skill reads only its section instead of re-scanning the codebase.
+3. **Sinks Index (shared cache)** — the `sast-index` skill runs `rg` once across the tree to enumerate security-relevant sinks (SQL calls, exec/eval, template renders, XML parsers, HTTP clients, upload handlers, JWT usage, secret markers, crypto primitives, security config, manifests, CI pipelines, log calls, …) and writes per-skill sections to `sast/sinks-index.md`. Every detection skill reads only its section instead of re-scanning the codebase.
 4. **Vulnerability Detection (parallel)** — the selected detection skills run in parallel as subagents. Each does a recon phase (reusing `sast/<skill>-recon.md` if present) then verifies exploitability. Results go to `sast/*-results.md`.
 5. **Report Generation** — the `sast-report` skill consolidates all findings into a single `sast/final-report.md`, ranked by severity with full remediation guidance and dynamic test instructions.
 
@@ -25,10 +25,14 @@ Claude Code with Opus model is recommended. But if the cost is a concern, use an
 | Group | Category | Skills |
 |-------|----------|--------|
 | **A01** | Broken Access Control | `sast-idor`, `sast-missingauth`, `sast-pathtraversal` |
-| **A02** | Cryptographic Failures | `sast-hardcodedsecrets` |
+| **A02** | Cryptographic Failures | `sast-hardcodedsecrets`, `sast-weakcrypto` |
 | **A03** | Injection | `sast-sqli`, `sast-xss`, `sast-rce`, `sast-ssti`, `sast-xxe` |
-| **A05** | Security Misconfiguration | `sast-fileupload` |
+| **A04** | Insecure Design | `sast-businesslogic` |
+| **A05** | Security Misconfiguration | `sast-fileupload`, `sast-misconfig` |
+| **A06** | Vulnerable & Outdated Components | `sast-sca` |
 | **A07** | Identification & Authentication Failures | `sast-jwt` |
+| **A08** | Software & Data Integrity Failures | `sast-massassignment`, `sast-cicd` |
+| **A09** | Security Logging & Monitoring Failures | `sast-logging` |
 | **A10** | Server-Side Request Forgery | `sast-ssrf` |
 
 Plus `sast-analysis` (recon / threat modeling) and `sast-report` (final consolidated report).

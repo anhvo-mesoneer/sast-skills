@@ -20,10 +20,14 @@ Before running Step 2, determine which OWASP categories to scan.
 | Group | Category | Skills |
 |-------|----------|--------|
 | **A01** | Broken Access Control | sast-idor, sast-missingauth, sast-pathtraversal |
-| **A02** | Cryptographic Failures | sast-hardcodedsecrets |
+| **A02** | Cryptographic Failures | sast-hardcodedsecrets, sast-weakcrypto |
 | **A03** | Injection | sast-sqli, sast-xss, sast-rce, sast-ssti, sast-xxe |
-| **A05** | Security Misconfiguration | sast-fileupload |
+| **A04** | Insecure Design | sast-businesslogic |
+| **A05** | Security Misconfiguration | sast-fileupload, sast-misconfig |
+| **A06** | Vulnerable & Outdated Components | sast-sca |
 | **A07** | Identification & Authentication Failures | sast-jwt |
+| **A08** | Software & Data Integrity Failures | sast-massassignment, sast-cicd |
+| **A09** | Security Logging & Monitoring Failures | sast-logging |
 | **A10** | Server-Side Request Forgery | sast-ssrf |
 
 State the selected scope back to the user in one line before starting Step 1.
@@ -56,9 +60,9 @@ Run only the checks in the selected scope. Skip any task where the results file 
 
 Start **one subagent per selected check**, all **in parallel**. Give each subagent this instruction pattern:
 
-> Read `sast/architecture.md` and the section for this skill in `sast/sinks-index.md` for context. If a `sast/<skill>-recon.md` file already exists, reuse it and skip recon. Otherwise run the skill's recon phase, then verification. Write findings to that skill's results file. **Preserve** `sast/<skill>-recon.md` and any `sast/<skill>-batch-*.md` intermediates so future runs can reuse them — do NOT clean them up.
+> Read `sast/architecture.md` and the section for this skill in `sast/sinks-index.md` for context. If a `sast/<skill>-recon.md` file already exists, reuse it and skip recon. Otherwise run the skill's recon phase, then verification. Write findings to that skill's results file. **Preserve** `sast/<skill>-recon.md` so future runs can reuse it — do NOT delete it, even if the skill's own cleanup step says to. `sast/<skill>-batch-*.md` files may be deleted after the merge.
 
-| Skill | Results file | Recon cache (preserve) |
+| Skill | Results file | Cache files |
 |-------|--------------|-------------------------|
 | sast-idor | `sast/idor-results.md` | `sast/idor-recon.md` |
 | sast-missingauth | `sast/missingauth-results.md` | `sast/missingauth-recon.md`, `sast/missingauth-batch-*.md` |
@@ -72,6 +76,13 @@ Start **one subagent per selected check**, all **in parallel**. Give each subage
 | sast-fileupload | `sast/fileupload-results.md` | `sast/fileupload-recon.md`, `sast/fileupload-batch-*.md` |
 | sast-jwt | `sast/jwt-results.md` | `sast/jwt-recon.md` |
 | sast-ssrf | `sast/ssrf-results.md` | `sast/ssrf-recon.md` |
+| sast-weakcrypto | `sast/weakcrypto-results.md` | `sast/weakcrypto-recon.md`, `sast/weakcrypto-batch-*.md` |
+| sast-businesslogic | `sast/businesslogic-results.md` | `sast/businesslogic-recon.md`, `sast/businesslogic-batch-*.md` |
+| sast-misconfig | `sast/misconfig-results.md` | `sast/misconfig-recon.md`, `sast/misconfig-batch-*.md` |
+| sast-sca | `sast/sca-results.md` | `sast/sca-recon.md`, `sast/sca-batch-*.md` |
+| sast-massassignment | `sast/massassignment-results.md` | `sast/massassignment-recon.md`, `sast/massassignment-batch-*.md` |
+| sast-cicd | `sast/cicd-results.md` | `sast/cicd-recon.md`, `sast/cicd-batch-*.md` |
+| sast-logging | `sast/logging-results.md` | `sast/logging-recon.md`, `sast/logging-batch-*.md` |
 
 Wait for all subagents to finish before proceeding.
 
