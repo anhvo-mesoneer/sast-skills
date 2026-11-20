@@ -76,3 +76,36 @@ All output is written to a `sast/` folder in your project root:
 | `sast/architecture.md` | Technology stack, architecture, entry points, data flows |
 | `sast/*-results.md` | Per-vulnerability-class findings with proof and remediation |
 | `sast/final-report.md` | Consolidated report ranked by severity |
+
+## GitHub Action
+
+The repository doubles as a composite action that scans a pull request and posts the report as an advisory comment.
+
+```yaml
+on:
+  pull_request:          # NOT pull_request_target
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: anhvo-mesoneer/sast-skills@<commit-sha>   # pin to a commit SHA
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          scope: owasp-top-10
+```
+
+### Security notes
+
+- **The scanned code is untrusted input to an AI agent that holds your API key.** Use the plain `pull_request` trigger so fork PRs run without secrets. Never use `pull_request_target`, and never fill `scope` or `output-dir` from PR, issue or comment text. Inputs are validated against a strict character set before use.
+- **The agent is restricted** to `Read,Write,Edit,Glob,Grep,Task,Bash(rg:*)` by default (`allowed-tools` input). It cannot run arbitrary shell commands. Widen it only if you understand the exposure.
+- **The report is AI output derived from the PR.** It is advisory; `@mentions` in it are neutralised, but review findings before acting on them.
+- **The action overwrites `CLAUDE.md`** in the CI workspace with its orchestration file (a warning is logged). Nothing is committed back.
+- Third-party actions used inside are pinned to commit SHAs. Keep them updated.
